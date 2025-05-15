@@ -23,9 +23,20 @@ void fill_matrix(int** matrix, int size, Edge* edges, int edge_count) {
         int t = edges[i].to;
         int w = edges[i].weight;
 
+        if (f < 0 || f >= size || t < 0 || t >= size) {
+            printf(RED "Invalid edge: %d -> %d\n" RESET, f, t);
+            continue;
+        }
+
+        if (matrix[f][t] != 0) {
+            printf(YELLOW "Warning: Overwriting edge %d -> %d\n" RESET, f, t);
+        }
+
         matrix[f][t] = w;
         matrix[t][f] = -w;
     }
+
+    
 }
 
 void print_matrix(int** matrix, int size) {
