@@ -110,10 +110,35 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Validate input parameters
+    // Check board dimensions
+    if(rows < 1 || rows > 10 || cols < 1 || cols > 10) {
+        fprintf(stderr, "Error: Invalid board dimensions: %dx%d (must be between 1x1 and 10x10)\n", rows, cols);
+        return EXIT_FAILURE;
+    }
+    // validate each snake/ladder pair
+    int target = rows * cols - 1; // last cell index
+    for (int i = 0; i < pair_count; ++i) {
+        int start = pairs[i][0];
+        int end   = pairs[i][1];
+        if (start < 0 || start > target || end < 0 || end > target) {
+            fprintf(stderr, "Invalid snake/ladder pair: %d -> %d\n", start, end);
+            return EXIT_FAILURE;
+        }
+        if (start == end) {
+            fprintf(stderr, "Error: -s start and end must differ (got %d->%d)\n", start, end);
+            return EXIT_FAILURE;
+        }
+        if (end == target && !die_sides) {
+            fprintf(stderr, "Error: cannot place a snake starting on the final square (%d->%d)\n", start, end);
+            return EXIT_FAILURE;
+        }
+    }
+
     // CREATE BOARD AND ADD CONNECTIONS
     Board *board = create_board(rows, cols, die_sides, true);
     if (!board) {
-        fprintf(stderr, "Board creation failed\n");
+        fprintf(stderr, "Error: Board creation failed\n");
         return EXIT_FAILURE;
     }
     for (int i = 0; i < pair_count; ++i) {
