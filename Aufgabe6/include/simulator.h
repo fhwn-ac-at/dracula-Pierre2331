@@ -41,7 +41,7 @@ bool simulator_play_single_game(const Board *b, int max_steps, int *total_rolls,
  *
  * Returns true if at least one game was won, false otherwise.
  */
-bool simulator_run_batch(const Board *b, int num_games, int max_steps, double *avg_rolls, int *min_rolls, int **best_path, int *best_path_len, long **connection_counts);
+bool simulator_run_batch(const Board *b, int num_games, int max_steps, double *avg_rolls, int *min_rolls, int **best_path, int *best_path_len,int *best_game_index, long **connection_counts);
 
 
 

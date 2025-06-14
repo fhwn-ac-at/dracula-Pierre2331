@@ -66,7 +66,9 @@ bool simulator_play_single_game(const Board *b, int max_steps, int *total_rolls,
     return false;
 }
 
-bool simulator_run_batch(const Board *b, int num_games, int max_steps, double *avg_rolls, int *min_rolls, int **best_path, int *best_path_len, long **connection_counts) {
+bool simulator_run_batch(const Board *b, int num_games, int max_steps, double *avg_rolls, int *min_rolls, int **best_path, int *best_path_len, int *best_game_index, long **connection_counts) {
+    int best_game = -1; // to track the best game index
+
     if (!b || num_games <= 0 || !avg_rolls || !min_rolls || !best_path || !best_path_len || !connection_counts) {
         return false;
     }
@@ -113,6 +115,7 @@ bool simulator_run_batch(const Board *b, int num_games, int max_steps, double *a
         if (rolls < best_rolls) {
             best_rolls = rolls;
             best_len = path_len;
+            best_game = g; // update the best game index
             free(best_p);
             best_p = malloc(sizeof(int) * path_len);
             if (best_p) {
@@ -134,6 +137,7 @@ bool simulator_run_batch(const Board *b, int num_games, int max_steps, double *a
     *min_rolls = best_rolls;
     *best_path = best_p;
     *best_path_len = best_len;
+    *best_game_index = best_game; 
     *connection_counts = conn_counts;
     return true;
 }

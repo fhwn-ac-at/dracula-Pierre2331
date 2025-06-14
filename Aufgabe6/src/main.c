@@ -12,10 +12,10 @@ static void print_statistics(int sample_size, int rows, int columns, int die_sid
     puts("+--------------------------------+");
     puts("|     Simulation statistics      |");
     puts("+--------------------------------+");
-    printf("| Sample size: %5d             |\n", sample_size);
+    printf("| Sample size: %5d            |\n", sample_size);
     printf("| Board size: %5d x %-5d      |\n", rows, columns);
     printf("| Dice size:  %5d              |\n", die_sides);
-    printf("| Dice roll limit: %3d          |\n", roll_limit);
+    printf("| Dice roll limit: %5d         |\n", roll_limit);
     printf("| Snakes & Ladders: %3d          |\n", num_snakes);
     puts("+--------------------------------+");
 }
@@ -74,6 +74,7 @@ int main(int argc, char *argv[]) {
     int die_sides = 6;
     int sample_size = 1000;
     int roll_limit = 1000;
+    int best_game = -1; // index of the best game (for the fastest path)
     bool exact_finish = true ; // true means players must land exactly on the last cell to win
 
     // storage for up to 32 -s pairs
@@ -267,7 +268,7 @@ int main(int argc, char *argv[]) {
 
     board_build_graph(board);
 
-    bool ok = simulator_run_batch(board, sample_size, roll_limit, &avg_rolls, &min_rolls, &best_path, &best_len, &conn_counts);
+    bool ok = simulator_run_batch(board, sample_size, roll_limit, &avg_rolls, &min_rolls, &best_path, &best_len, &best_game, &conn_counts);
     if (!ok) {
         fprintf(stderr, "No game won or simulation error\n");
         destroy_board(board);
@@ -275,7 +276,7 @@ int main(int argc, char *argv[]) {
     }
 
     print_statistics(sample_size, rows, cols, die_sides, roll_limit, board->num_connections);
-    print_results(avg_rolls, /* fastest_id= */1, min_rolls, best_path, best_len, board, conn_counts);
+    print_results(avg_rolls, best_game + 1, min_rolls, best_path, best_len, board, conn_counts);
 
     // Cleanup
     free(best_path);
