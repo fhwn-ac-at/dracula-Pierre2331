@@ -21,6 +21,7 @@ typedef struct {
     Connection *connections; // array of connections (snakes and ladders)
     int die_sides; // number of sides on the die
     bool exact_finish; // true if players must land exactly on the last cell to win, false otherwise
+    int **adj; // adjacency matrix for the board
 } Board;
 
 Board *create_board(int rows, int cols, int die_sides, bool exact_finish);
@@ -29,5 +30,6 @@ void destroy_board(Board *board);
 bool board_add_connection(Board *board, int start, int end);
 void board_print(const Board *board);
 int board_move(const Board *board, int position, int roll);
+void board_build_graph(Board *b);
 
 #endif // BOARD_H

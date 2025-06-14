@@ -22,10 +22,14 @@ Board *create_board(int rows, int cols, int die_sides, bool exact_finish) {
 }
 
 void destroy_board(Board *board) {
-    if (board) {
-        free(board->connections); // Free the connections array if it was allocated
-        free(board); // Free the board structure itself
+    if (!board) return;
+
+    for (int i = 0; i < board->total_cells; ++i) {
+        free(board->adj[i]);
     }
+    free(board->adj);
+    free(board->connections);
+    free(board);
 }
 
 int board_move(const Board *b, int position, int roll) {
@@ -106,17 +110,13 @@ bool board_add_connection(Board *b, int start, int end) {
 
     // 3. Ensure no overlap with other snakes/ladders at the same square
     for (int i = 0; i < b->num_connections; ++i) {
-        if (b->connections[i].start == start) {
-            fprintf(stderr,
-                    "board_add_connection: A connection already starts at square %d\n",
-                    start);
+        Connection *c = &b->connections[i];
+        if (c->start == start || c->end == start) {
+            fprintf(stderr, "board_add_connection: Field %d is already a start or end of a connection\n", start);
             return false;
         }
-        if (b->connections[i].end == start) {
-            // Conservatively disallow landing on another connection’s end
-            fprintf(stderr,
-                    "board_add_connection: Another connection ends at square %d\n",
-                    start);
+        if (c->start == end || c->end == end) {
+            fprintf(stderr, "board_add_connection: Field %d is already start or end of a connection\n", end);
             return false;
         }
     }
@@ -141,4 +141,28 @@ bool board_add_connection(Board *b, int start, int end) {
     b->num_connections++;
 
     return true;
+}
+
+void board_build_graph(Board *b) {
+    if (!b) return;
+    int N = b->total_cells;
+    int S = b->die_sides;
+    //Array of N pointers to int arrays
+    b->adj = malloc(sizeof(int*) * N);
+    if (!b->adj) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int u = 0; u < N; ++u) {
+        // for each throw one edge 
+        b->adj[u] = malloc(sizeof(int) * S);
+        if (!b->adj[u]) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+        for (int v = 1; v <= S; ++v) {
+            b->adj[u][v-1] = board_move(b, u, v); 
+        }
+    }
 }

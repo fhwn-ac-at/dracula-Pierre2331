@@ -13,7 +13,13 @@ int simulator_single_move(const Board *b, int position, int *roll_out, int *trav
     int roll = roll_die(b->die_sides);
     *roll_out = roll; // output the rolled value
 
-    int new_pos = board_move(b, position, roll);
+    //int new_pos = board_move(b, position, roll);
+    int new_pos;
+    if (position >= 0 && position < b->total_cells) {
+        new_pos = b->adj[position][roll - 1];
+    } else {
+        new_pos = board_move(b, position, roll);
+    }
 
     // check for a snake or ladder at new_pos
     for (int i = 0; i < b->num_connections; ++i) {

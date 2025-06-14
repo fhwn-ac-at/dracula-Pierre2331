@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <errno.h>
 #include <unistd.h>
 #include <time.h>
 #include "board.h"
@@ -73,104 +74,210 @@ int main(int argc, char *argv[]) {
     int die_sides = 6;
     int sample_size = 1000;
     int roll_limit = 1000;
+    bool exact_finish = true ; // true means players must land exactly on the last cell to win
 
-    // temporärer Speicher für -s Paare
+    // storage for up to 32 -s pairs
     int max_pairs = 32;
     int (*pairs)[2] = malloc(sizeof(*pairs) * max_pairs);
     int pair_count = 0;
 
     int opt;
-    while ((opt = getopt(argc, argv, "w:h:d:n:l:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "w:h:d:n:l:s:e:")) != -1) {
+        char *endptr;
+        long val;
+
         switch (opt) {
-            case 'w': cols        = atoi(optarg); break;
-            case 'h': rows        = atoi(optarg); break;
-            case 'd': die_sides   = atoi(optarg); break;
-            case 'n': sample_size = atoi(optarg); break;
-            case 'l': roll_limit  = atoi(optarg); break;
+            case 'w':  // columns, must be 1–10
+                errno = 0;
+                val = strtol(optarg, &endptr, 10);
+                if (errno || *endptr != '\0' || val < 1 || val > 10) {
+                    fprintf(stderr, "Error: -w requires an integer 1–10 (got '%s')\n", optarg);
+                    return EXIT_FAILURE;
+                }
+                cols = (int)val;
+                break;
+
+            case 'h':  // rows, must be 1–10
+                errno = 0;
+                val = strtol(optarg, &endptr, 10);
+                if (errno || *endptr != '\0' || val < 1 || val > 10) {
+                    fprintf(stderr, "Error: -h requires an integer 1–10 (got '%s')\n", optarg);
+                    return EXIT_FAILURE;
+                }
+                rows = (int)val;
+                break;
+
+            case 'd':
+                errno = 0;
+                val = strtol(optarg, &endptr, 10);
+                if (errno || *endptr != '\0' || val < 1 || val > 10) {
+                    fprintf(stderr, "Error: -d requires an integer 1–10 (got '%s')\n", optarg);
+                    return EXIT_FAILURE;
+                }
+                die_sides = (int)val;
+                break;
+            case 'n':  // number of simulations, must be a positive integer
+                errno = 0;
+                val = strtol(optarg, &endptr, 10);
+                if (errno || *endptr != '\0' || val < 1) {
+                    fprintf(stderr, "Error: -n requires a positive integer (got '%s')\n", optarg);
+                    return EXIT_FAILURE;
+                }
+                sample_size = (int)val;
+                break;
+            case 'l':
+                errno = 0;
+                val = strtol(optarg, &endptr, 10);
+                if (errno || *endptr != '\0' || val < 1) {
+                    fprintf(stderr, "Error: -l requires a positive integer (got '%s')\n", optarg);
+                    return EXIT_FAILURE;
+                }
+                roll_limit = (int)val;
+                break;
+
             case 's':
-                if (pair_count >= max_pairs) {
-                    fprintf(stderr, "Too many -s pairs\n");
+                 if (pair_count >= max_pairs) {
+                fprintf(stderr, "Error: Too many -s pairs (max %d)\n", max_pairs);
+                return EXIT_FAILURE;
+                }
+                // parse start
+                char *arg1 = optarg;
+                errno = 0;
+                long start = strtol(arg1, &endptr, 10);
+                if (errno || *endptr != '\0') {
+                    fprintf(stderr, "Error: -s start must be an integer (got '%s')\n", arg1);
                     return EXIT_FAILURE;
                 }
-                pairs[pair_count][0] = atoi(optarg);
-                if (optind < argc) {
-                    pairs[pair_count][1] = atoi(argv[optind++]);
-                } else {
-                    fprintf(stderr, "Missing end value for -s\n");
+
+                // parse end from next argv
+                if (optind >= argc) {
+                    fprintf(stderr, "Error: Missing end value for -s\n");
                     return EXIT_FAILURE;
                 }
+                char *arg2 = argv[optind++];
+                errno = 0;
+                long end = strtol(arg2, &endptr, 10);
+                if (errno || *endptr != '\0') {
+                    fprintf(stderr, "Error: -s end must be an integer (got '%s')\n", arg2);
+                    return EXIT_FAILURE;
+                }
+
+                // range check
+                int target = rows * cols - 1;
+                if (start < 0 || start > target ||
+                    end   < 0 || end   > target) {
+                    fprintf(stderr,
+                        "Error: -s values must be between 0 and %d (got %ld->%ld)\n",
+                        target, start, end);
+                    return EXIT_FAILURE;
+                }
+
+                // no self-loop
+                if (start == end) {
+                    fprintf(stderr,
+                        "Error: -s start and end must differ (%ld->%ld)\n",
+                        start, end);
+                    return EXIT_FAILURE;
+                }
+
+                // no snake on final square
+                if (start == target && end < start) {
+                    fprintf(stderr,
+                        "Error: cannot place a snake on the final square (%ld->%ld)\n",
+                        start, end);
+                    return EXIT_FAILURE;
+                }
+
+                // everything OK: save pair
+                pairs[pair_count][0] = (int)start;
+                pairs[pair_count][1] = (int)end;
                 pair_count++;
                 break;
+            
+            case 'e':
+                errno = 0;
+                val = strtol(optarg, &endptr, 10);
+                if (errno || *endptr != '\0' || (val != 0 && val != 1)) {
+                    fprintf(stderr, "Error: -e requires 0 (overshoot wins) or 1 (exact finish), got '%s'\n", optarg);
+                    return EXIT_FAILURE;
+                }
+                exact_finish = (val == 1);
+                break;
+
             default:
-                fprintf(stderr,
-                        "Usage: %s [-w cols] [-h rows] [-d dice] "
-                        "[-n simulations] [-l roll_limit] [-s start end]...\n",
-                        argv[0]);
+                fprintf(stderr, "Usage: %s [-w 1-10] [-h 1-10] [-d 1-10] [-n ≥1] [-l ≥1] [-e 0|1] [-s start end]...\n", argv[0]);
                 return EXIT_FAILURE;
         }
     }
 
-    // Validate input parameters
-    // Check board dimensions
-    if(rows < 1 || rows > 10 || cols < 1 || cols > 10) {
-        fprintf(stderr, "Error: Invalid board dimensions: %dx%d (must be between 1x1 and 10x10)\n", rows, cols);
+    // Validate board dimensions one more time
+    if (rows < 1 || rows > 10 || cols < 1 || cols > 10) {
+        fprintf(stderr,
+            "Error: board dimensions must be 1–10 (got %dx%d)\n",
+            rows, cols);
         return EXIT_FAILURE;
     }
-    // validate each snake/ladder pair
-    int target = rows * cols - 1; // last cell index
+
+    // Validate each snake/ladder pair
+    int target = rows * cols - 1;
     for (int i = 0; i < pair_count; ++i) {
         int start = pairs[i][0];
         int end   = pairs[i][1];
         if (start < 0 || start > target || end < 0 || end > target) {
-            fprintf(stderr, "Invalid snake/ladder pair: %d -> %d\n", start, end);
+            fprintf(stderr, "Error: -s values must be 0..%d (got %d->%d)\n",
+                    target, start, end);
             return EXIT_FAILURE;
         }
         if (start == end) {
-            fprintf(stderr, "Error: -s start and end must differ (got %d->%d)\n", start, end);
+            fprintf(stderr, "Error: -s start and end must differ (%d->%d)\n",
+                    start, end);
             return EXIT_FAILURE;
         }
-        if (end == target && !die_sides) {
-            fprintf(stderr, "Error: cannot place a snake starting on the final square (%d->%d)\n", start, end);
+        // forbid a snake starting on the final square
+        if (start == target && end < start) {
+            fprintf(stderr,
+                    "Error: cannot place a snake on the final square (%d->%d)\n",
+                    start, end);
             return EXIT_FAILURE;
         }
     }
 
-    // CREATE BOARD AND ADD CONNECTIONS
-    Board *board = create_board(rows, cols, die_sides, true);
+    // Build the board and add all connections
+    Board *board = create_board(rows, cols, die_sides, exact_finish);
     if (!board) {
         fprintf(stderr, "Error: Board creation failed\n");
         return EXIT_FAILURE;
     }
     for (int i = 0; i < pair_count; ++i) {
-        int start = pairs[i][0];
-        int end   = pairs[i][1];
-        if (!board_add_connection(board, start, end)) {
-            fprintf(stderr,
-                    "Invalid connection: %d -> %d\n",
-                    start, end);
+        if (!board_add_connection(board, pairs[i][0], pairs[i][1])) {
+            fprintf(stderr, "Invalid connection: %d -> %d\n",
+                    pairs[i][0], pairs[i][1]);
+            destroy_board(board);
             return EXIT_FAILURE;
         }
     }
     free(pairs);
 
-    // simulation start
+    // Run simulations...
     double avg_rolls;
     int min_rolls;
     int *best_path = NULL;
     int best_len = 0;
     long *conn_counts = NULL;
 
+    board_build_graph(board);
+
     bool ok = simulator_run_batch(board, sample_size, roll_limit, &avg_rolls, &min_rolls, &best_path, &best_len, &conn_counts);
     if (!ok) {
-        fprintf(stderr, "No game was won or simulation error\n");
+        fprintf(stderr, "No game won or simulation error\n");
         destroy_board(board);
         return EXIT_FAILURE;
     }
 
     print_statistics(sample_size, rows, cols, die_sides, roll_limit, board->num_connections);
-    print_results(avg_rolls, /* fastest_id = */ 1 +  0, min_rolls, best_path, best_len, board, conn_counts);
+    print_results(avg_rolls, /* fastest_id= */1, min_rolls, best_path, best_len, board, conn_counts);
 
-    // cleanup
+    // Cleanup
     free(best_path);
     free(conn_counts);
     destroy_board(board);
