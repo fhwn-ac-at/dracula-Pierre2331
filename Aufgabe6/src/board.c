@@ -52,9 +52,9 @@ int board_move(const Board *b, int position, int roll) {
 
 void board_print(const Board *b) {
     if (!b) return;
-    printf("Board: %d x %d, Diesites: %d, exact_finish: %s\n",
+    printf("Board: %d x %d, Die-sites: %d, exact_finish: %s\n",
            b->rows, b->cols, b->die_sides,
-           b->exact_finish ? "ja" : "nein");
+           b->exact_finish ? "yes" : "no");
     printf("Count Snakes/Ladders: %d\n", b->num_connections);
     for (int i = 0; i < b->num_connections; ++i) {
         Connection *c = &b->connections[i];

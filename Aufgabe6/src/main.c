@@ -53,7 +53,8 @@ static void print_results(double avg_rolls, int fastest_id, int fastest_rolls, i
         else                                  sum_snake  += connection_counts[i];
     }
 
-    int idx_s = 1, idx_l = 1;
+    int idx_s = 1; //index snake
+    idx_l = 1; //index ladders
     for (int i = 0; i < board->num_connections; ++i) {
         Connection *c = &board->connections[i];
         if (c->is_ladder) {
